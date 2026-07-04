@@ -20,17 +20,39 @@ class LoginController extends GetxController {
 
         if (userCredential.user != null) {
           if (userCredential.user!.emailVerified == true) {
-            Get.offAllNamed(Routes.HOME);
-          }else{
+            if(passController.text == "123456"){
+              Get.offAllNamed(Routes.NEW_PASSWORD);
+            }else{
+              Get.offAllNamed(Routes.HOME);
+            }
+          } else {
             Get.defaultDialog(
               title: "Login Gagal",
               middleText: "Email belum diverifikasi, silahkan cek email anda",
-              textConfirm: "Kirim Ulang Email Verifikasi",
-              onConfirm: () async {
-                await userCredential.user!.sendEmailVerification();
-                Get.back();
-                Get.snackbar("Berhasil", "Email verifikasi telah dikirim ulang");
-             },
+              actions: [
+                OutlinedButton(
+                  onPressed: () => Get.back(),
+                  child: Text("Cancel"),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    try {
+                      await userCredential.user!.sendEmailVerification();
+                      Get.back();
+                      Get.snackbar(
+                        "Berhasil",
+                        "Email verifikasi berhasil dikirim, silahkan cek email anda",
+                      );
+                    } catch (e) {
+                      Get.snackbar(
+                        "Terjadi Kesalahan",
+                        "Tidak dapt mengirim email verifikasi, silahkan coba lagi nanti",
+                      );
+                    }
+                  },
+                  child: Text("Kirim Ulang"),
+                ),
+              ],
             );
           }
         }

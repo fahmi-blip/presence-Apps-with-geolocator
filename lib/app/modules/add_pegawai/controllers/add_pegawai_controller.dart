@@ -7,34 +7,35 @@ class AddPegawaiController extends GetxController {
   TextEditingController nipController = TextEditingController();
   TextEditingController namaController = TextEditingController();
   TextEditingController emailController = TextEditingController();
+  TextEditingController passwordAdminController = TextEditingController();
 
   FirebaseAuth auth = FirebaseAuth.instance;
   FirebaseFirestore firestore = FirebaseFirestore.instance;
 
-  void addPegawai() async {
-    // 1. Ambil teks lalu bersihkan spasi di awal & akhir menggunakan .trim()
+  Future<void> prosesAddPegawai() async {
     String inputNama = namaController.text.trim();
     String inputNip = nipController.text.trim();
     String inputEmail = emailController.text.trim();
 
-    // 2. Gunakan variabel yang sudah di-trim untuk pengecekan kondisi 'if'
-    if (inputNama.isNotEmpty && inputNip.isNotEmpty && inputEmail.isNotEmpty) {
+    if (passwordAdminController.text.isNotEmpty) {
       try {
-        // 3. Konversi NIP ke tipe int
+        String emailAdmin = auth.currentUser!.email!;
         int? nipInput = int.tryParse(inputNip);
-        if (nipInput == null) {
-          Get.snackbar("Error", "NIP harus berupa angka bulat yang valid!");
-          return;
-        }
 
-        UserCredential userCredential = await auth
+        UserCredential userCredentialAdmin = await auth
+            .signInWithEmailAndPassword(
+              email: emailAdmin,
+              password: passwordAdminController.text,
+            );
+
+        UserCredential pegawaiCredential = await auth
             .createUserWithEmailAndPassword(
               email: inputEmail,
               password: "123456", // Password default
             );
-        
-        if(userCredential.user != null){
-          String uid = userCredential.user!.uid;
+
+        if (pegawaiCredential.user != null) {
+          String uid = pegawaiCredential.user!.uid;
 
           await firestore.collection("pegawai").doc(uid).set({
             "nip": nipInput,
@@ -44,17 +45,32 @@ class AddPegawaiController extends GetxController {
             "createdAt": FieldValue.serverTimestamp(),
           });
 
-          userCredential.user!.sendEmailVerification();
+          await pegawaiCredential.user!.sendEmailVerification();
+
+          await auth.signOut();
+
+          UserCredential userCredentialAdmin = await auth
+              .signInWithEmailAndPassword(
+                email: emailAdmin,
+                password: passwordAdminController.text,
+              );
+          Get.back();
+          Get.back();
+          Get.snackbar(
+            "Sukses",
+            "Pegawai berhasil ditambahkan dan email verifikasi telah dikirim",
+          );
         }
 
-
-        print(userCredential);
+        print(pegawaiCredential);
         Get.snackbar("Sukses", "Pegawai berhasil ditambahkan");
       } on FirebaseAuthException catch (e) {
         if (e.code == 'weak-password') {
           Get.snackbar("Error", "Password terlalu singkat");
         } else if (e.code == 'email-already-in-use') {
           Get.snackbar("Error", "Pegawai sudah terdaftar");
+        } else if (e.code == 'wrong-password') {
+          Get.snackbar("Error", "Admin tidak dapat login, password salah");
         } else {
           Get.snackbar("Error", e.message ?? "Terjadi kesalahan Firebase");
         }
@@ -62,7 +78,45 @@ class AddPegawaiController extends GetxController {
         Get.snackbar("Error", "Gagal menambahkan pegawai");
       }
     } else {
-      // Jalankan ini jika ada field yang terdeteksi string kosong "" setelah di-trim
+      Get.snackbar("Error", "Password admin wajib diisi");
+    }
+  }
+
+  void addPegawai() async {
+    // 1. Ambil teks lalu bersihkan spasi di awal & akhir menggunakan .trim()
+    String inputNama = namaController.text.trim();
+    String inputNip = nipController.text.trim();
+    String inputEmail = emailController.text.trim();
+
+    // 2. Gunakan variabel yang sudah di-trim untuk pengecekan kondisi 'if'
+    if (inputNama.isNotEmpty && inputNip.isNotEmpty && inputEmail.isNotEmpty) {
+      Get.defaultDialog(
+        title: "Validasi Admin",
+        content: Column(
+          children: [
+            Text("Masukkan password untuk validasi admin"),
+            TextField(
+              controller: passwordAdminController,
+              obscureText: true,
+              autocorrect: false,
+              decoration: InputDecoration(
+                labelText: "Password",
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          OutlinedButton(onPressed: () => Get.back(), child: Text("Cancel")),
+          ElevatedButton(
+            onPressed: () async {
+              await prosesAddPegawai();
+            },
+            child: Text("Submit"),
+          ),
+        ],
+      );
+    } else {
       Get.snackbar("Error", "Semua kolom wajib diisi!");
     }
   }

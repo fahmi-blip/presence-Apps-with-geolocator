@@ -26,6 +26,7 @@ class LoginView extends GetView<LoginController> {
           SizedBox(height: 20),
           TextField(
             controller: controller.passController,
+            obscureText: true,
             decoration: InputDecoration(
               labelText: "Password",
               border: OutlineInputBorder(),
